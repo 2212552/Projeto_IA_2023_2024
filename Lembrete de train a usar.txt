@@ -1,0 +1,11 @@
+Numero Carlos - 2212552
+Numero Alexandre - 2211037
+
+2+7=9
+
+9 % 5 + 1 = Resto da divisao(4) + 1 = 5
+
+Conjunto de Validação:train5
+Conjunto de treino:train1,train2,train3,train4
+
+
