@@ -183,8 +183,185 @@ plt.legend()
 plt.show()
 `
 
--Imprime o grafico e o progresso da acurácia do modelo.
+## Código do 2º Modelo
 
-## Graficos
+1. Imports usados para fine-tuning.
+(Usámos o modelo pré treinado VGG16 do keras)
+
+`
+from tensorflow.keras.applications import VGG16
+`
+2. Buscar pastas com as imagens
+
+`
+import os
+import tensorflow as tf
+train_dir = '/content/drive/MyDrive/AI/Projeto_AI/train'
+validation_dir = '/content/drive/MyDrive/AI/Projeto_AI/train5'
+test_dir = '/content/drive/MyDrive/AI/Projeto_AI/test'
+`
+3. Fazer o preprocessamento dos dados.
+
+`
+IMG_SIZE = 150
+BATCH_SIZE = 32
+train_dataset = tf.keras.utils.image_dataset_from_directory(
+    train_dir,
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE
+)
+validation_dataset = tf.keras.utils.image_dataset_from_directory(
+    validation_dir,
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE
+)
+test_dataset = tf.keras.utils.image_dataset_from_directory(
+    test_dir,
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE
+)
+`
+
+4. Compilação do modelo neural
+(Neste 2º modelo usámos um otimizador distinto, o otimizador adam em vez de RMSprop e usamos a função de loss sparse_categorical_crossentropy em vez de binary_crossentropy)
+`
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+`
+5. Treinar o modelo
+
+`
+history = model.fit(
+    train_dataset,
+    epochs=10,
+    validation_data=validation_dataset
+)
+test_loss, test_acc = model.evaluate(test_dataset)
+print(f'Test accuracy: {test_acc}')
+model.save('/content/drive/MyDrive/AI/Projeto_AI/image_classifier_model.h5')
+`
+6. Mostrar o gráfico de progresso
+(Mostra os valores de accuracy e valores de loss)
+`
+import matplotlib.pyplot as plt
+plt.figure(figsize=(8, 8))
+plt.subplot(2, 1, 1)
+plt.plot(history.history['accuracy'], label='Training Accuracy')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy')
+plt.legend(loc='lower right')
+plt.ylabel('Accuracy')
+plt.ylim([0, 1.0])
+plt.title('Training and Validation Accuracy')
+plt.subplot(2, 1, 2)
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.legend(loc='upper right')
+plt.ylabel('Cross Entropy')
+plt.ylim([0, 1.0])
+plt.title('Training and Validation Loss')
+plt.xlabel('epoch')
+plt.show()
+`
+
+# Código do 2º Modelo modificado para usar data augmentation
+
+3. Fazer o preprocessamento dos dados com a utilização de uma função de data augmentation
+(Usámos as funções de augmentação RandomFlip e RandomRotation para aumentar a diversidade dos conjuntos de treino)
+`
+IMG_SIZE = 150
+BATCH_SIZE = 32
+data_augmentation = tf.keras.Sequential([
+    layers.RandomFlip("horizontal_and_vertical"),
+    layers.RandomRotation(0.2),
+])
+train_dataset = tf.keras.utils.image_dataset_from_directory(
+    train_dir,
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE
+).map(lambda x, y: (data_augmentation(x, training=True), y))
+validation_dataset = tf.keras.utils.image_dataset_from_directory(
+    validation_dir,
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE
+)
+test_dataset = tf.keras.utils.image_dataset_from_directory(
+    test_dir,
+    image_size=(IMG_SIZE, IMG_SIZE),
+    batch_size=BATCH_SIZE
+)
+`
+
+# Código do 2º Modelo modificado para usar fine-tuning
+
+3. Criação do modelo neural com fine-tuning.
+(AUTOTUNE utilizado para melhorar o transfer learning, utilização do modelo pré treinado VGG16, congelou-se o modelo base e adicionou-se camadas de classificação em cima do modelo)
+`
+AUTOTUNE = tf.data.AUTOTUNE
+train_dataset = train_dataset.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
+validation_dataset = validation_dataset.cache().prefetch(buffer_size=AUTOTUNE)
+test_dataset = test_dataset.cache().prefetch(buffer_size=AUTOTUNE)
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(IMG_SIZE, IMG_SIZE, 3))
+base_model.trainable = False
+model = models.Sequential([
+    data_augmentation,
+    layers.Rescaling(1./255),
+    base_model,
+    layers.Flatten(),
+    layers.Dense(512, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(len(train_dataset.class_names), activation='softmax')
+])
+`
+
+4. Compilação do modelo neural com fine-tuning.
+(Descongelamento das camadas base do modelo, fine-tune desde a camada 10, congelamento de todas as camadas antes da 10, compilação od modelo com um menor learning rate)
+`
+base_model.trainable = True
+print("Number of layers in the base model: ", len(base_model.layers))
+fine_tune_at = 10
+for layer in base_model.layers[:fine_tune_at]:
+    layer.trainable = False
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-5),
+              loss='categorical_crossentropy',
+              metrics=['accuracy'])
+`              
+
+5. Treinar o modelo com fine-tuning.
+(Treino com 10 épocas em que se avalia o modelo e se guarda o modelo avaliado num ficheiro)
+`
+history_fine = model.fit(
+    train_dataset,
+    epochs=10,
+    validation_data=validation_dataset
+)
+test_loss, test_acc = model.evaluate(test_dataset)
+print(f'Test accuracy (Fine-Tuning): {test_acc}')
+model.save('/content/drive/MyDrive/AI/Projeto_AI/image_classifier_model_fine_tuning.h5')
+`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
